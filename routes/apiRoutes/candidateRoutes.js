@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../../db/connection');
 const inputCheck = require('../../utils/inputCheck');
 
-// Get all candidates. Uses endpoint /api/candidates and the callback function handles the client's
+// Get all candidates. Uses endpoint /candidates and the callback function handles the client's
 // request and the database's response. The get() method is wrapped around the database call that we
 // made earlier and modify it a bit. The SQL statement SELECT * FROM candidates is assigned to the sql
 // variable. Instead of logging the error, a status code of 500 is sent and the error message is placed
@@ -11,18 +11,22 @@ const inputCheck = require('../../utils/inputCheck');
 // indicates a server error, different from a 404, which is a user request error. If the error is
 // encountered, the return statement will exit the database. If no error, err is null and the response
 // is sent back with a message of success.
-router.get('/api/candidates', (req, res) => {
-    const sql = `SELECT * FROM candidates`;
+router.get('/candidates', (req, res) => {
+    const sql = `SELECT candidates.*, parties.name 
+                AS party_name 
+                FROM candidates 
+                LEFT JOIN parties 
+                ON candidates.party_id = parties.id`;
 
     db.query(sql, (err, rows) => {
         if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-    }
-    res.json({
-        message: 'success',
-        data: rows
-    });
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({
+            message: 'success',
+            data: rows
+        });
     });
 });
 
@@ -34,28 +38,29 @@ router.get('/api/candidates', (req, res) => {
 // params is assigned as an array with a single element, req.params.id. The error status code was
 // changed to 400 to notify the client that their request wasn't accepted and to try a different
 // request. In the route response, we'll send the row back to the client in a JSON object.
-router.get('/api/candidate/:id', (req, res) => {
+router.get('/candidate/:id', (req, res) => {
     const sql = `SELECT candidates.*, parties.name 
-            AS party_name 
-            FROM candidates 
-            LEFT JOIN parties 
-            ON candidates.party_id = parties.id`;
+                AS party_name 
+                FROM candidates 
+                LEFT JOIN parties 
+                ON candidates.party_id = parties.id 
+                WHERE candidates.id = ?`;
     const params = [req.params.id];
 
     db.query(sql, params, (err, row) => {
-    if (err) {
-        res.status(400).json({ error: err.message });
-        return;
-    }
-    res.json({
-        message: 'success',
-        data: row
-    });
+        if (err) {
+            res.status(400).json({ error: err.message });
+            return;
+        }
+        res.json({
+            message: 'success',
+            data: row
+        });
     });
 });
 
 // Create a candidate. We use the HTTP request method post() to insert a candidate into the candidates
-// table. Endpoint is /api/candidate. In the callback function, we'll use the body req.body to populate
+// table. Endpoint is /candidate. In the callback function, we'll use the body req.body to populate
 // the candidate's data. We use object destructuring to pull the body property out of the request object.
 // Until now, we've been passing the entire request object to the routes in the req parameter. In the
 // callback function block, we assign errors to receive the return from the inputCheck function. inputCheck
@@ -65,8 +70,13 @@ router.get('/api/candidate/:id', (req, res) => {
 // free of erroneous data and avoid wasting resources on expensive database calls. If the inputCheck()
 // function returns an error, a 400 status code is returned to prompt for a different user request with a
 // JSON object that contains the reasons for the errors.
-router.post('/api/candidate', ({ body }, res) => {
-    const errors = inputCheck(body, 'first_name', 'last_name', 'industry_connected');
+router.post('/candidate', ({ body }, res) => {
+    const errors = inputCheck(
+        body,
+        'first_name',
+        'last_name',
+        'industry_connected'
+    );
     if (errors) {
         res.status(400).json({ error: errors });
         return;
@@ -77,8 +87,12 @@ router.post('/api/candidate', ({ body }, res) => {
     // data collected in req.body. Using the query() method, we execute the prepared SQL statement and 
     // send the response using the res.json() method with a success message and the user data that was
     // used to create the new data entry.
-    const sql = `INSERT INTO candidates (first_name, last_name, industry_connected) VALUES (?,?,?)`;
-    const params = [body.first_name, body.last_name, body.industry_connected];
+    const sql = `INSERT INTO candidates (first_name, last_name, industry_connected, party_id) VALUES (?,?,?,?)`;
+    const params = [
+        body.first_name,
+        body.last_name,
+        body.industry_connected
+    ];
 
     db.query(sql, params, (err, result) => {
         if (err) {
@@ -93,23 +107,28 @@ router.post('/api/candidate', ({ body }, res) => {
 });
 
 // Update a candidate's party
-router.put('/api/candidate/:id', (req, res) => {
-    const sql = `UPDATE candidates SET party_id = ? 
-                WHERE id = ?`;
+router.put('/candidate/:id', (req, res) => {
+    const errors = inputCheck(req.body, 'party_id');
+    if (errors) {
+        res.status(400).json({ error: errors });
+        return;
+    }
+
+    const sql = `UPDATE candidates SET party_id = ? WHERE id = ?`;
     const params = [req.body.party_id, req.params.id];
+
     db.query(sql, params, (err, result) => {
         if (err) {
             res.status(400).json({ error: err.message });
-            // check if a record was found
         } else if (!result.affectedRows) {
             res.json({
-                message: 'Candidate not found'
+            message: 'Candidate not found'
             });
         } else {
             res.json({
-                message: 'success',
-                data: req.body,
-                changes: result.affectedRows
+            message: 'success',
+            data: req.body,
+            changes: result.affectedRows
             });
         }
     });
@@ -133,29 +152,24 @@ router.put('/api/candidate/:id', (req, res) => {
 // "Candidate not found." To test, we unfortunately can't simply plug the endpoint into the browser
 // to check because we can only test the get() request in the browser manually, and not delete(). We
 // will need Insomnia.
-router.delete('/api/candidate/:id', (req, res) => {
-    const sql = `SELECT candidates.*, parties.name 
-            AS party_name 
-            FROM candidates 
-            LEFT JOIN parties 
-            ON candidates.party_id = parties.id 
-            WHERE candidates.id = ?`;
+router.delete('/candidate/:id', (req, res) => {
+    const sql = `DELETE FROM candidates WHERE id = ?`;
     const params = [req.params.id];
 
     db.query(sql, params, (err, result) => {
-    if (err) {
-        res.statusMessage(400).json({ error: res.message });
-    } else if (!result.affectedRows) {
-        res.json({
-        message: 'Candidate not found'
-        });
-    } else {
-        res.json({
-        message: 'Successfully deleted',
-        changes: result.affectedRows,
-        id: req.params.id
-        });
-    }
+        if (err) {
+            res.status(400).json({ error: res.message });
+        } else if (!result.affectedRows) {
+            res.json({
+            message: 'Candidate not found'
+            });
+        } else {
+            res.json({
+            message: 'deleted',
+            changes: result.affectedRows,
+            id: req.params.id
+            });
+        }
     });
 });
 
