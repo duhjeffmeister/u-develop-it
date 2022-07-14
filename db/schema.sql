@@ -12,6 +12,19 @@ CREATE TABLE parties (
     name VARCHAR(50) NOT NULL,
     description TEXT
 );
+/* Creates a new voters table. DEFAULT specifies what hte value should be if no value is */
+/* provided. DATETIME is a datatype that looks like 2020-01-01 13:00:00 and the front end */
+/* team can take that value and convert it with JavaScript's Date() constructor and display */
+/* anything they want at that point. CURRENT_TIMESTAMP returns the current date and time in */
+/* the aforementioned format. This will be based on what time it is according to your server, */
+/* not the client's machine. */
+CREATE TABLE voters (
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(30) NOT NULL,
+    last_name VARCHAR(30) NOT NULL,
+    email VARCHAR(50) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
 /* Creates a table named candidates on the current database */
 CREATE TABLE candidates (
