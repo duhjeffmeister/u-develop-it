@@ -2,8 +2,10 @@
 /* start with a clean slate. Teh candidates table must be dropped before the parties table */
 /* due to the foreign key contraint that requires the parties table to exist. A foreign key */
 /* is a field in one table that references the primary key of another table (id value) */
+DROP TABLE IF EXISTS votes;
 DROP TABLE IF EXISTS candidates;
 DROP TABLE IF EXISTS parties;
+DROP TABLE IF EXISTS voters;
 
 /* VARCHAR data type must declare a limit on the length, but TEXT can store much longer */
 /* strings of varying length. Overuse of TEXT can bloat the database however. */
@@ -12,6 +14,7 @@ CREATE TABLE parties (
     name VARCHAR(50) NOT NULL,
     description TEXT
 );
+
 /* Creates a new voters table. DEFAULT specifies what hte value should be if no value is */
 /* provided. DATETIME is a datatype that looks like 2020-01-01 13:00:00 and the front end */
 /* team can take that value and convert it with JavaScript's Date() constructor and display */
@@ -24,6 +27,19 @@ CREATE TABLE voters (
     last_name VARCHAR(30) NOT NULL,
     email VARCHAR(50) NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+/* First constraint, uc_voter, signifies that the values inserted into the voter_id field must */
+/* be unique. The next two constraints are foreign key constraints. ON DELETE CASCADE makes it so */
+/* that deleting the reference key will also delete the entire row from this table. */
+CREATE TABLE votes (
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
+    voter_id INTEGER NOT NULL,
+    candidate_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uc_voter UNIQUE (voter_id),
+    CONSTRAINT fk_voter FOREIGN KEY (voter_id) REFERENCES voters(id) ON DELETE CASCADE,
+    CONSTRAINT fk_candidate FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
 );
 
 /* Creates a table named candidates on the current database */
